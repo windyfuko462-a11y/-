@@ -1,0 +1,440 @@
+HTML
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>屋台とんかつクリッカー</title>
+<style>
+  * { box-sizing: border-box; user-select: none; margin: 0; padding: 0; }
+  body {
+    background: #11141a;
+    color: #e2e8f0;
+    font-family: "Courier New", monospace, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  #game-container {
+    width: 960px;
+    height: 600px;
+    background: #1a202c;
+    border: 4px solid #4a5568;
+    display: grid;
+    grid-template-columns: 640px 312px;
+    grid-template-rows: 520px 72px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+  }
+
+  /* メイン画面 */
+  #main-panel {
+    background: #2d3748;
+    border-right: 4px solid #4a5568;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+  #stage-header {
+    background: #1a202c;
+    padding: 8px 12px;
+    border: 2px solid #718096;
+    margin-bottom: 12px;
+  }
+  #stage-title { font-weight: bold; font-size: 16px; color: #f6e05e; }
+  #stage-desc { font-size: 11px; color: #a0aec0; }
+
+  #workspace {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #171923;
+    border: 2px dashed #4a5568;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  #cutlet-btn {
+    width: 180px;
+    height: 110px;
+    background: #d69e2e;
+    border: 4px solid #744210;
+    border-radius: 30px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 0 #744210;
+    transition: transform 0.05s, box-shadow 0.05s;
+    font-size: 13px;
+    font-weight: bold;
+    color: #2d3748;
+  }
+  #cutlet-btn:active {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 #744210;
+  }
+  #click-action-text { font-size: 11px; margin-top: 4px; color: #744210; }
+  #customer-dialogue {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #cbd5e0;
+    height: 18px;
+    text-align: center;
+  }
+
+  /* アップグレード */
+  #upgrades-panel {
+    margin-top: 12px;
+    height: 120px;
+    display: flex;
+    gap: 8px;
+  }
+  .upgrade-btn {
+    flex: 1;
+    background: #2b6cb0;
+    border: 2px solid #63b3ed;
+    color: #fff;
+    padding: 8px;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .upgrade-btn:disabled {
+    background: #4a5568;
+    border-color: #718096;
+    color: #a0aec0;
+    cursor: not-allowed;
+  }
+
+  /* 右側パラレルモニター */
+  #side-panel {
+    background: #0d1117;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .monitor-box {
+    flex: 1;
+    background: #000;
+    border: 2px solid #2d3748;
+    padding: 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .monitor-header {
+    font-size: 11px;
+    font-weight: bold;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #2d3748;
+    display: flex;
+    justify-content: space-between;
+  }
+  .monitor-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 1.5;
+    text-align: center;
+    padding: 8px;
+  }
+  .tv-effect {
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.15),
+      rgba(0,0,0,0.15) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    pointer-events: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+  }
+  #mon-b { color: #68d391; border-color: #22543d; }
+  #mon-c { color: #f6ad55; border-color: #7b341e; }
+
+  /* 下部ステータスバー */
+  #status-bar {
+    grid-column: span 2;
+    background: #1a202c;
+    border-top: 4px solid #4a5568;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    font-size: 14px;
+  }
+  .val { color: #48bb78; font-weight: bold; }
+
+  /* 分岐ポップアップ */
+  #branch-modal {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-title { font-size: 18px; color: #f6e05e; margin-bottom: 8px; font-weight: bold; }
+  .modal-desc { font-size: 12px; color: #cbd5e0; margin-bottom: 20px; text-align: center; }
+  .choice-container { display: flex; gap: 12px; }
+  .choice-card {
+    width: 170px;
+    background: #2d3748;
+    border: 2px solid #4a5568;
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .choice-card:hover { border-color: #f6e05e; background: #323f56; }
+  .choice-name { font-weight: bold; font-size: 13px; margin-bottom: 6px; color: #ecc94b; }
+  .choice-text { font-size: 10px; color: #a0aec0; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- メイン操作 -->
+  <div id="main-panel">
+    <div id="stage-header">
+      <div id="stage-title">大学裏門の屋台（商店街の角）</div>
+      <div id="stage-desc">金欠の学生たちのために、安肉を叩いて伸ばして揚げる日々。</div>
+    </div>
+
+    <div id="workspace">
+      <button id="cutlet-btn">
+        <span id="cutlet-title">肉を叩いて揚げる</span>
+        <span id="click-action-text">ビール瓶でペタペタ！</span>
+      </button>
+      <div id="customer-dialogue">「大将、ごはん大盛り無料にして！」</div>
+    </div>
+
+    <div id="upgrades-panel">
+      <button class="upgrade-btn" id="upg-1" onclick="buyUpg(1)">
+        <span id="upg1-name">百均のトング</span>
+        <span id="upg1-desc">+1円 / クリック</span>
+        <span id="upg1-cost">コスト: 100円</span>
+      </button>
+      <button class="upgrade-btn" id="upg-2" onclick="buyUpg(2)">
+        <span id="upg2-name">トング威嚇カチカチ</span>
+        <span id="upg2-desc">+2円 / 秒</span>
+        <span id="upg2-cost">コスト: 250円</span>
+      </button>
+      <button class="upgrade-btn" id="upg-3" onclick="buyUpg(3)">
+        <span id="upg3-name">百均ゴムハンマー</span>
+        <span id="upg3-desc">+10円 / 秒</span>
+        <span id="upg3-cost">コスト: 1,000円</span>
+      </button>
+    </div>
+
+    <!-- 分岐モーダル -->
+    <div id="branch-modal">
+      <div class="modal-title">◆ 運命の分岐点：深夜の訪問者 ◆</div>
+      <div class="modal-desc">資金が10,000円に達しました。3人の影が屋台に現れました。</div>
+      <div class="choice-container">
+        <div class="choice-card" onclick="chooseRoute('A')">
+          <div class="choice-name">【A】商店街会長</div>
+          <div class="choice-text">「向かいの空き店舗を使え！店をデカくしていこう」<br><br><b>店舗拡大・チェーン化</b></div>
+        </div>
+        <div class="choice-card" onclick="chooseRoute('B')">
+          <div class="choice-name">【B】農学部老教授</div>
+          <div class="choice-text">「叩くのは野蛮だ。私の研究室で肉を極めんか？」<br><br><b>職人求道・究極の一皿</b></div>
+        </div>
+        <div class="choice-card" onclick="chooseRoute('C')">
+          <div class="choice-name">【C】スーツの元常連</div>
+          <div class="choice-text">「このオペレーション、FC化して投資を募りましょう」<br><br><b>資本投資・金融ビジネス</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- パラレル観測モニター -->
+  <div id="side-panel">
+    <div class="monitor-box" id="mon-b">
+      <div class="tv-effect"></div>
+      <div class="monitor-header">
+        <span id="mon-title-1">観測: 世界線-B [求道]</span>
+        <span>REC</span>
+      </div>
+      <div class="monitor-content" id="mon-text-1">
+        屋台の隅でキャベツと対話を試みている……
+      </div>
+    </div>
+
+    <div class="monitor-box" id="mon-c">
+      <div class="tv-effect"></div>
+      <div class="monitor-header">
+        <span id="mon-title-2">観測: 世界線-C [資本]</span>
+        <span>REC</span>
+      </div>
+      <div class="monitor-content" id="mon-text-2">
+        屋台の売上金を仮想通貨に突っ込もうとしている……
+      </div>
+    </div>
+  </div>
+
+  <!-- ステータスバー -->
+  <div id="status-bar">
+    <div>所持金: <span class="val" id="money-display">0</span> 円</div>
+    <div>秒間売上 (CPS): <span class="val" id="cps-display">0</span> 円/秒</div>
+    <div style="font-size:11px; color:#a0aec0;">屋台とんかつクリッカー v0.1</div>
+  </div>
+</div>
+
+<script>
+  let money = 0;
+  let clickPower = 10;
+  let cps = 0;
+  let currentRoute = 'PROLOGUE';
+
+  let upg1Level = 0, upg1Cost = 100;
+  let upg2Level = 0, upg2Cost = 250;
+  let upg3Level = 0, upg3Cost = 1000;
+
+  const quotes = [
+    "「大将、ごはん大盛り無料にして！」",
+    "「このペタペタカツ、皿からはみ出てて最高っす」",
+    "「八百屋のオヤジが余ったキャベツの芯を投げてよこした」",
+    "「トングのカチカチ音が路地に心地よく響く」",
+    "「空き瓶で肉を叩くリズムがだんだん速くなってきた」"
+  ];
+
+  const cutletBtn = document.getElementById('cutlet-btn');
+  const moneyDisp = document.getElementById('money-display');
+  const cpsDisp = document.getElementById('cps-display');
+  const dialogue = document.getElementById('customer-dialogue');
+  const branchModal = document.getElementById('branch-modal');
+
+  cutletBtn.addEventListener('click', () => {
+    money += clickPower;
+    updateUI();
+    if (Math.random() < 0.2) {
+      dialogue.innerText = quotes[Math.floor(Math.random() * quotes.length)];
+    }
+    checkBranch();
+  });
+
+  function buyUpg(type) {
+    if (type === 1 && money >= upg1Cost) {
+      money -= upg1Cost;
+      upg1Level++;
+      clickPower += (currentRoute === 'B' ? 50 : 5);
+      upg1Cost = Math.floor(upg1Cost * 1.5);
+    } else if (type === 2 && money >= upg2Cost) {
+      money -= upg2Cost;
+      upg2Level++;
+      cps += (currentRoute === 'A' ? 20 : 2);
+      upg2Cost = Math.floor(upg2Cost * 1.6);
+    } else if (type === 3 && money >= upg3Cost) {
+      money -= upg3Cost;
+      upg3Level++;
+      cps += (currentRoute === 'C' ? 100 : 15);
+      upg3Cost = Math.floor(upg3Cost * 1.7);
+    }
+    updateUI();
+  }
+
+  function checkBranch() {
+    if (currentRoute === 'PROLOGUE' && money >= 10000) {
+      branchModal.style.display = 'flex';
+    }
+  }
+
+  function chooseRoute(route) {
+    currentRoute = route;
+    branchModal.style.display = 'none';
+
+    const stageTitle = document.getElementById('stage-title');
+    const stageDesc = document.getElementById('stage-desc');
+    const cutletTitle = document.getElementById('cutlet-title');
+    const clickAction = document.getElementById('click-action-text');
+
+    if (route === 'A') {
+      stageTitle.innerText = "ルートA: 商店街メガチェーン本店";
+      stageDesc.innerText = "店を拡大中。バイトの人手不足とシフト表に追われている。";
+      cutletTitle.innerText = "ベルを鳴らして号令";
+      clickAction.innerText = "「早く揚げろー！」";
+      setupUpgrades("全自動トングアーム", "+50円/クリック", "シフト詰め込み", "+20円/秒", "2号店ビル建設", "+150円/秒");
+      setupMonitors("観測: 世界線-B [求道]", "白装束を着て滝に打たれながら豚肉を清めている……",
+                    "観測: 世界線-C [資本]", "豚肉先物取引の画面を見つめながら葉巻を吸っている……");
+    } else if (route === 'B') {
+      stageTitle.innerText = "ルートB: 究極熟成・完全予約制カウンター";
+      stageDesc.innerText = "肉を叩くのをやめた。1日1組、3万円のコースのみを提供する。";
+      cutletTitle.innerText = "肉の声を聴く";
+      clickAction.innerText = "ピンセットで筋抜き";
+      setupUpgrades("隕鉄鍛造トング", "+100円/クリック", "秘伝の100年壺", "+10円/秒", "幻の岩塩鉱山", "+80円/秒");
+      setupMonitors("観測: 世界線-A [拡大]", "バイトが全員脱走して店主がレジ前で青ざめている……",
+                    "観測: 世界線-C [資本]", "豚をモチーフにした巨大テーマパークを買収している……");
+    } else if (route === 'C') {
+      stageTitle.innerText = "ルートC: TONKATSU・グローバルファンド執務室";
+      stageDesc.innerText = "現場は離れた。権利収入と豚肉インデックス投資で世界を動かす。";
+      cutletTitle.innerText = "契約書に捺印する";
+      clickAction.innerText = "ロイヤリティ徴収！";
+      setupUpgrades("黄金の儀礼用トング", "+30円/クリック", "FC加盟金吸い上げ", "+150円/秒", "代替肉バイオ投資", "+500円/秒");
+      setupMonitors("観測: 世界線-A [拡大]", "街中の電柱が自分の顔写真看板で埋め尽くされている……",
+                    "観測: 世界線-B [求道]", "顕微鏡で豚肉の気泡を見つめ「宇宙…」と呟いている……");
+    }
+    updateUI();
+  }
+
+  function setupUpgrades(n1, d1, n2, d2, n3, d3) {
+    document.getElementById('upg1-name').innerText = n1;
+    document.getElementById('upg1-desc').innerText = d1;
+    document.getElementById('upg2-name').innerText = n2;
+    document.getElementById('upg2-desc').innerText = d2;
+    document.getElementById('upg3-name').innerText = n3;
+    document.getElementById('upg3-desc').innerText = d3;
+  }
+
+  function setupMonitors(t1, b1, t2, b2) {
+    document.getElementById('mon-title-1').innerText = t1;
+    document.getElementById('mon-text-1').innerText = b1;
+    document.getElementById('mon-title-2').innerText = t2;
+    document.getElementById('mon-text-2').innerText = b2;
+  }
+
+  function updateUI() {
+    moneyDisp.innerText = Math.floor(money).toLocaleString();
+    cpsDisp.innerText = cps.toLocaleString();
+
+    document.getElementById('upg1-cost').innerText = `コスト: ${upg1Cost.toLocaleString()}円`;
+    document.getElementById('upg2-cost').innerText = `コスト: ${upg2Cost.toLocaleString()}円`;
+    document.getElementById('upg3-cost').innerText = `コスト: ${upg3Cost.toLocaleString()}円`;
+
+    document.getElementById('upg-1').disabled = money < upg1Cost;
+    document.getElementById('upg-2').disabled = money < upg2Cost;
+    document.getElementById('upg-3').disabled = money < upg3Cost;
+  }
+
+  // 自動収益タイマー (毎秒更新)
+  setInterval(() => {
+    if (cps > 0) {
+      money += cps;
+      updateUI();
+      checkBranch();
+    }
+  }, 1000);
+
+  updateUI();
+</script>
+</body>
+</html>
